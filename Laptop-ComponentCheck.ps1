@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Laptop Component Originality Checker — Dell, HP, Lenovo
+    Laptop Component Originality Checker - Dell, HP, Lenovo
 .DESCRIPTION
     Audits hardware components in a refurbished laptop and generates a
     detailed report to verify whether parts are original or swapped.
@@ -38,14 +38,14 @@ param(
     [switch]$ExportHtml,
     [switch]$ExportJson,
 
-    [string]$OutputPath = "$PSScriptRoot\LaptopComponentReport",
+    [string]$OutputPath = $(if ($PSScriptRoot) { "$PSScriptRoot\LaptopComponentReport" } else { ".\LaptopComponentReport" }),
 
     [switch]$SkipBatteryReport
 )
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 #  BRAND-SPECIFIC CONFIGURATION
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 $BrandProfiles = @{
 
@@ -54,26 +54,21 @@ $BrandProfiles = @{
         MatchPatterns   = @("*Dell*")
         SupportUrl      = "https://www.dell.com/support/home/en-us/product-support/servicetag/{0}/overview"
         SerialLabel     = "Service Tag"
-        # Known OEM RAM suppliers
         RamVendors      = @("Samsung", "SK Hynix", "Hynix", "Micron", "Kingston",
                             "Ramaxel", "Smart Modular", "Nanya", "Elpida")
-        # Known OEM battery manufacturers
         BatteryVendors  = @("Dell", "Samsung SDI", "LGC", "Simplo", "SMP",
                             "BYD", "Celxpert", "Sunwoda")
-        # Known WiFi card vendors (Dell uses BIOS whitelist on many models)
         WifiVendors     = @("Intel", "Qualcomm", "Killer", "Dell Wireless",
                             "Broadcom", "Rivet Networks", "MediaTek")
-        WifiWhitelist   = $true   # Dell enforces BIOS-level WiFi whitelist
-        # Known display panel manufacturers
+        WifiWhitelist   = $true
         PanelVendors    = @("AUO", "BOE", "LGD", "CMN", "SDC", "SHP", "IVO",
                             "AU Optronics", "LG Display", "Sharp", "Innolux")
-        # Known SSD/HDD OEM suppliers
         StorageVendors  = @("Samsung", "SK Hynix", "Hynix", "Micron", "Toshiba",
                             "KIOXIA", "Western Digital", "WDC", "Intel", "Lite-On",
                             "SanDisk", "Seagate", "LITEON", "KXG", "SSDPEM", "MZVL")
         BIOSVendor      = "Dell Inc."
         Notes           = @(
-            "Dell laptops often have a BIOS WiFi whitelist — non-approved cards may not boot."
+            "Dell laptops often have a BIOS WiFi whitelist - non-approved cards may not boot."
             "Service Tag can be verified at dell.com/support for original factory configuration."
             "Dell batteries use Dell-specific connectors and firmware handshake."
         )
@@ -90,7 +85,7 @@ $BrandProfiles = @{
                             "SMP", "BYD", "Celxpert", "Sunwoda", "Dynapack")
         WifiVendors     = @("Intel", "Qualcomm", "Broadcom", "Realtek", "MediaTek",
                             "Ralink")
-        WifiWhitelist   = $true   # Many HP models enforce BIOS WiFi whitelist
+        WifiWhitelist   = $true
         PanelVendors    = @("AUO", "BOE", "LGD", "CMN", "SDC", "SHP", "IVO",
                             "AU Optronics", "LG Display", "Sharp", "Innolux")
         StorageVendors  = @("Samsung", "SK Hynix", "Hynix", "Micron", "Toshiba",
@@ -98,9 +93,9 @@ $BrandProfiles = @{
                             "SanDisk", "Seagate", "LITEON", "KXG", "SSDPEM", "MZVL")
         BIOSVendor      = "HP"
         Notes           = @(
-            "HP laptops often have a BIOS WiFi whitelist — non-approved cards may prevent boot."
+            "HP laptops often have a BIOS WiFi whitelist - non-approved cards may prevent boot."
             "Use HP Support Assistant or hp.com/support to verify original configuration."
-            "HP product number (P/N) is different from serial — both are useful for verification."
+            "HP product number (P/N) is different from serial - both are useful for verification."
         )
     }
 
@@ -116,7 +111,7 @@ $BrandProfiles = @{
                             "CPT", "Dynapack")
         WifiVendors     = @("Intel", "Qualcomm", "Broadcom", "Realtek", "MediaTek",
                             "Fibocom", "Ralink")
-        WifiWhitelist   = $false  # Newer ThinkPads removed whitelist; older ones had it
+        WifiWhitelist   = $false
         PanelVendors    = @("AUO", "BOE", "LGD", "CMN", "SDC", "SHP", "IVO",
                             "AU Optronics", "LG Display", "Sharp", "Innolux", "CSO")
         StorageVendors  = @("Samsung", "SK Hynix", "Hynix", "Micron", "Toshiba",
@@ -132,26 +127,28 @@ $BrandProfiles = @{
     }
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 #  HELPER FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 function Write-Banner {
     param([string]$Title)
     $width = 64
     $pad = [math]::Max(0, [math]::Floor(($width - $Title.Length - 2) / 2))
-    $line = "═" * $width
-    Write-Host "`n$line" -ForegroundColor DarkCyan
+    $line = "=" * $width
+    Write-Host ""
+    Write-Host $line -ForegroundColor DarkCyan
     Write-Host (" " * $pad + "  $Title") -ForegroundColor Cyan
-    Write-Host "$line" -ForegroundColor DarkCyan
+    Write-Host $line -ForegroundColor DarkCyan
 }
 
 function Write-Section {
     param([string]$Title)
-    $sep = "─" * 60
-    Write-Host "`n$sep" -ForegroundColor DarkCyan
+    $sep = "-" * 60
+    Write-Host ""
+    Write-Host $sep -ForegroundColor DarkCyan
     Write-Host "  $Title" -ForegroundColor Cyan
-    Write-Host "$sep" -ForegroundColor DarkCyan
+    Write-Host $sep -ForegroundColor DarkCyan
 }
 
 function Write-Field {
@@ -161,9 +158,17 @@ function Write-Field {
 }
 
 function Write-StatusField {
-    param([string]$Label, [string]$Value, [ValidateSet('OK','Warn','Info')]$Status = 'Info')
-    $icon  = switch ($Status) { 'OK' { "✓" } 'Warn' { "⚠" } 'Info' { "ℹ" } }
-    $color = switch ($Status) { 'OK' { 'Green' } 'Warn' { 'Yellow' } 'Info' { 'DarkGray' } }
+    param(
+        [string]$Label,
+        [string]$Value,
+        [ValidateSet('OK','Warn','Info')]
+        [string]$Status = 'Info'
+    )
+    switch ($Status) {
+        'OK'   { $icon = "[OK]";   $color = 'Green' }
+        'Warn' { $icon = "[!!]";   $color = 'Yellow' }
+        'Info' { $icon = "[i]";    $color = 'DarkGray' }
+    }
     Write-Field -Label "$icon $Label" -Value $Value -Color $color
 }
 
@@ -193,9 +198,9 @@ function Decode-WmiString {
     ($Bytes | Where-Object { $_ -ne 0 } | ForEach-Object { [char]$_ }) -join ''
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 #  INITIALIZATION
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 $isAdmin = ([Security.Principal.WindowsPrincipal] `
     [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -204,7 +209,7 @@ $isAdmin = ([Security.Principal.WindowsPrincipal] `
 $report   = [ordered]@{}
 $warnings = [System.Collections.Generic.List[string]]::new()
 
-# ── Detect / validate brand ─────────────────────────────────────────────────
+# -- Detect / validate brand -------------------------------------------------
 
 $cs   = Get-CimInstance Win32_ComputerSystem
 $bios = Get-CimInstance Win32_BIOS
@@ -213,24 +218,27 @@ $bb   = Get-CimInstance Win32_BaseBoard
 $detectedManufacturer = $cs.Manufacturer
 
 if ($Brand -eq "Auto") {
-    $Brand = $null
+    $detectedBrand = $null
     foreach ($brandName in $BrandProfiles.Keys) {
         $profile = $BrandProfiles[$brandName]
         foreach ($pattern in $profile.MatchPatterns) {
             if ($detectedManufacturer -like $pattern) {
-                $Brand = $brandName
+                $detectedBrand = $brandName
                 break
             }
         }
-        if ($Brand) { break }
+        if ($detectedBrand) { break }
     }
-    if (-not $Brand) {
-        Write-Host "`n⚠  Could not auto-detect brand from manufacturer: '$detectedManufacturer'" -ForegroundColor Yellow
-        Write-Host "   Supported brands: Dell, HP, Lenovo" -ForegroundColor Yellow
-        Write-Host "   Falling back to generic checks.`n" -ForegroundColor Yellow
+    if (-not $detectedBrand) {
+        Write-Host ""
+        Write-Host "  [!!] Could not auto-detect brand from manufacturer: '$detectedManufacturer'" -ForegroundColor Yellow
+        Write-Host "       Supported brands: Dell, HP, Lenovo" -ForegroundColor Yellow
+        Write-Host "       Falling back to generic checks." -ForegroundColor Yellow
         $Brand = "Generic"
     } else {
-        Write-Host "`n✓  Auto-detected brand: $Brand (from '$detectedManufacturer')" -ForegroundColor Green
+        $Brand = $detectedBrand
+        Write-Host ""
+        Write-Host "  [OK] Auto-detected brand: $Brand (from '$detectedManufacturer')" -ForegroundColor Green
     }
 }
 
@@ -255,20 +263,21 @@ if ($BrandProfiles.ContainsKey($Brand)) {
     }
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 #  HEADER
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 Write-Banner "$($profile.DisplayName) LAPTOP COMPONENT ORIGINALITY CHECKER"
 
 if (-not $isAdmin) {
-    Write-Host "`n  ⚠  Running without Administrator privileges. Some checks will be limited." -ForegroundColor Yellow
-    Write-Host "     Recommend: Right-click PowerShell → 'Run as Administrator'`n" -ForegroundColor DarkYellow
+    Write-Host ""
+    Write-Host "  [!!] Running without Administrator privileges. Some checks will be limited." -ForegroundColor Yellow
+    Write-Host "       Recommend: Right-click PowerShell -> 'Run as Administrator'" -ForegroundColor DarkYellow
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 #  1. SYSTEM IDENTITY
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 Write-Section "1. SYSTEM IDENTITY"
 
@@ -283,7 +292,7 @@ $report['System'] = [ordered]@{
     Model          = $model
     ($profile.SerialLabel) = $serialNumber
     BIOSVersion    = $biosVersion
-    BIOSDate       = $biosDate?.ToString("yyyy-MM-dd")
+    BIOSDate       = if ($biosDate) { $biosDate.ToString("yyyy-MM-dd") } else { "N/A" }
     Motherboard    = "$($bb.Manufacturer) / $($bb.Product)"
     MoboSerial     = $bb.SerialNumber
     SystemSKU      = $cs.SystemSKUNumber
@@ -307,7 +316,7 @@ if ($Brand -ne "Generic" -and -not $brandMatch) {
 }
 
 Write-Field "BIOS Version" $biosVersion
-Write-Field "BIOS Date" ($biosDate?.ToString("yyyy-MM-dd"))
+Write-Field "BIOS Date" $(if ($biosDate) { $biosDate.ToString("yyyy-MM-dd") } else { "N/A" })
 Write-Field "Motherboard" "$($bb.Manufacturer) / $($bb.Product)"
 Write-Field "Motherboard Serial" $bb.SerialNumber
 if ($cs.SystemSKUNumber) { Write-Field "System SKU" $cs.SystemSKUNumber }
@@ -315,8 +324,8 @@ if ($cs.SystemSKUNumber) { Write-Field "System SKU" $cs.SystemSKUNumber }
 # Brand-specific support link
 if ($profile.SupportUrl) {
     $supportUrl = $profile.SupportUrl -f $serialNumber
-    Write-Host "`n  🔗 " -NoNewline
-    Write-Host "Verify original config: " -NoNewline -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  >> Verify original config: " -NoNewline -ForegroundColor Gray
     Write-Host $supportUrl -ForegroundColor Blue
 } else {
     $supportUrl = ""
@@ -328,24 +337,22 @@ if ($Brand -eq "HP") {
     if ($hpProductNum) {
         Write-Field "HP Product Number (P/N)" $hpProductNum
         $hpLookupUrl = "https://support.hp.com/us-en/product/details/$hpProductNum"
-        Write-Host "  🔗 " -NoNewline
-        Write-Host "HP P/N lookup: " -NoNewline -ForegroundColor Gray
+        Write-Host "  >> HP P/N lookup: " -NoNewline -ForegroundColor Gray
         Write-Host $hpLookupUrl -ForegroundColor Blue
     }
 }
 
 # Lenovo-specific: machine type
 if ($Brand -eq "Lenovo") {
-    # Lenovo model string often includes machine type like "20Y3CTO1WW"
     $lenovoMachineType = ($model -split '\s')[0]
     if ($lenovoMachineType) {
         Write-Field "Lenovo Machine Type" $lenovoMachineType
     }
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 #  2. PROCESSOR (CPU)
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 Write-Section "2. PROCESSOR (CPU)"
 
@@ -370,19 +377,18 @@ foreach ($cpu in $cpus) {
     Write-Field "Architecture" $cpuArch
     Write-Field "Socket" $cpu.SocketDesignation
 
-    # Note on replaceability
     $solderedIndicators = @("BGA", "FP", "U3E1")
     $isSoldered = $solderedIndicators | Where-Object { $cpu.SocketDesignation -like "*$_*" }
     if ($isSoldered -or $cpu.UpgradeMethod -in @(1, 2, 6)) {
-        Write-StatusField "CPU Type" "Likely soldered — cannot be swapped" -Status OK
+        Write-StatusField "CPU Type" "Likely soldered - cannot be swapped" -Status OK
     } else {
-        Write-StatusField "CPU Type" "Socketed — CPU could have been replaced (verify against original spec)" -Status Info
+        Write-StatusField "CPU Type" "Socketed - CPU could have been replaced (verify against original spec)" -Status Info
     }
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 #  3. MEMORY (RAM)
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 Write-Section "3. MEMORY (RAM)"
 
@@ -425,7 +431,7 @@ foreach ($ram in $ramModules) {
     $isKnownMfr = Test-VendorMatch -ActualValue $mfr -KnownVendors $profile.RamVendors
     if (-not $isKnownMfr -and $mfr -ne "Unknown") {
         Write-StatusField "  RAM Vendor" "'$mfr' is NOT a common $($profile.DisplayName) OEM RAM supplier" -Status Warn
-        $warnings.Add("RAM Module $moduleIndex: Manufacturer '$mfr' is uncommon for $($profile.DisplayName) OEM.")
+        $warnings.Add("RAM Module ${moduleIndex}: Manufacturer '$mfr' is uncommon for $($profile.DisplayName) OEM.")
     } elseif ($mfr -ne "Unknown") {
         Write-StatusField "  RAM Vendor" "Known $($profile.DisplayName) OEM supplier" -Status OK
     }
@@ -442,9 +448,9 @@ foreach ($ram in $ramModules) {
     })
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 #  4. STORAGE DRIVES
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 Write-Section "4. STORAGE DRIVES"
 
@@ -458,7 +464,7 @@ foreach ($disk in $disks) {
 
     Write-Host ""
     Write-Field "  Drive $driveIndex" $disk.Model
-    Write-Field "  Serial Number" $disk.SerialNumber?.Trim()
+    Write-Field "  Serial Number" $(if ($disk.SerialNumber) { $disk.SerialNumber.Trim() } else { "N/A" })
     Write-Field "  Capacity" $sizeStr
     Write-Field "  Interface" $disk.InterfaceType
     Write-Field "  Media Type" $disk.MediaType
@@ -466,7 +472,7 @@ foreach ($disk in $disks) {
 
     $driveData = [ordered]@{
         Model        = $disk.Model
-        SerialNumber = $disk.SerialNumber?.Trim()
+        SerialNumber = if ($disk.SerialNumber) { $disk.SerialNumber.Trim() } else { "N/A" }
         Capacity     = $sizeStr
         Interface    = $disk.InterfaceType
         MediaType    = $disk.MediaType
@@ -478,8 +484,8 @@ foreach ($disk in $disks) {
     if ($isKnownStorage) {
         Write-StatusField "  Storage Vendor" "Known OEM drive manufacturer" -Status OK
     } elseif ($disk.Model) {
-        Write-StatusField "  Storage Vendor" "'$($disk.Model)' — verify with $($profile.DisplayName) original config" -Status Warn
-        $warnings.Add("Drive $driveIndex: '$($disk.Model)' — verify against original configuration.")
+        Write-StatusField "  Storage Vendor" "'$($disk.Model)' - verify with $($profile.DisplayName) original config" -Status Warn
+        $warnings.Add("Drive ${driveIndex}: '$($disk.Model)' - verify against original configuration.")
     }
 
     # S.M.A.R.T. / power-on hours
@@ -500,24 +506,24 @@ foreach ($disk in $disks) {
                             $driveData['PowerOnHours'] = $poh
 
                             if ($poh -gt 15000) {
-                                Write-StatusField "  Drive Usage" "Very high ($poh hrs) — likely reused from another machine" -Status Warn
-                                $warnings.Add("Drive $driveIndex ($($disk.Model)): $poh power-on hours — likely not original.")
+                                Write-StatusField "  Drive Usage" "Very high ($poh hrs) - likely reused from another machine" -Status Warn
+                                $warnings.Add("Drive $driveIndex ($($disk.Model)): $poh power-on hours - likely not original.")
                             } elseif ($poh -gt 8000) {
-                                Write-StatusField "  Drive Usage" "Moderate ($poh hrs) — verify against expected refurb age" -Status Warn
+                                Write-StatusField "  Drive Usage" "Moderate ($poh hrs) - verify against expected refurb age" -Status Warn
                             } else {
-                                Write-StatusField "  Drive Usage" "$poh hrs — looks reasonable" -Status OK
+                                Write-StatusField "  Drive Usage" "$poh hrs - looks reasonable" -Status OK
                             }
                         }
                         if ($rel.Temperature) {
-                            Write-Field "  Temperature" "$($rel.Temperature)°C"
+                            Write-Field "  Temperature" "$($rel.Temperature) C"
                             $driveData['Temperature'] = $rel.Temperature
                         }
                         if ($null -ne $rel.Wear) {
                             Write-Field "  SSD Wear Level" "$($rel.Wear)%"
                             $driveData['WearLevel'] = $rel.Wear
                             if ($rel.Wear -gt 50) {
-                                Write-StatusField "  Wear" "Above 50% — SSD has significant wear" -Status Warn
-                                $warnings.Add("Drive $driveIndex: SSD wear at $($rel.Wear)%.")
+                                Write-StatusField "  Wear" "Above 50% - SSD has significant wear" -Status Warn
+                                $warnings.Add("Drive ${driveIndex}: SSD wear at $($rel.Wear)%.")
                             }
                         }
                         if ($rel.ReadErrorsTotal)  { Write-Field "  Read Errors" $rel.ReadErrorsTotal }
@@ -527,18 +533,18 @@ foreach ($disk in $disks) {
                 }
             }
         } catch {
-            Write-Host "    ℹ  Could not retrieve S.M.A.R.T. data for this drive" -ForegroundColor DarkGray
+            Write-Host "    [i] Could not retrieve S.M.A.R.T. data for this drive" -ForegroundColor DarkGray
         }
     } else {
-        Write-Host "    ℹ  Run as Admin to get power-on hours and health data" -ForegroundColor DarkGray
+        Write-Host "    [i] Run as Admin to get power-on hours and health data" -ForegroundColor DarkGray
     }
 
     $report['Storage'].Add($driveData)
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 #  5. BATTERY
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 Write-Section "5. BATTERY"
 
@@ -570,6 +576,7 @@ if ($batteries) {
             Write-Field "Design Voltage" "$($bat.DesignVoltage) mV"
             $batData['DesignVoltage'] = "$($bat.DesignVoltage) mV"
         }
+        $report['Battery'].Add($batData)
     }
 
     # Detailed WMI battery info
@@ -605,13 +612,13 @@ if ($batteries) {
                 if ($batteryDetails -and $batteryDetails[0].DesignedCapacity -gt 0) {
                     $healthPct = [math]::Round(($bs.FullChargedCapacity / $batteryDetails[0].DesignedCapacity) * 100, 1)
                     if ($healthPct -ge 80) {
-                        Write-StatusField "Battery Health" "$healthPct% of design capacity — good condition" -Status OK
+                        Write-StatusField "Battery Health" "$healthPct% of design capacity - good condition" -Status OK
                     } elseif ($healthPct -ge 50) {
-                        Write-StatusField "Battery Health" "$healthPct% of design capacity — moderate wear" -Status Warn
-                        $warnings.Add("Battery health at $healthPct% — moderate degradation.")
+                        Write-StatusField "Battery Health" "$healthPct% of design capacity - moderate wear" -Status Warn
+                        $warnings.Add("Battery health at $healthPct% - moderate degradation.")
                     } else {
-                        Write-StatusField "Battery Health" "$healthPct% of design capacity — significant degradation!" -Status Warn
-                        $warnings.Add("Battery health critically low at $healthPct%!")
+                        Write-StatusField "Battery Health" "$healthPct% of design capacity - significant degradation!" -Status Warn
+                        $warnings.Add("Battery health critically low at ${healthPct}%!")
                     }
                 }
             }
@@ -624,12 +631,12 @@ if ($batteries) {
             if ($bc.CycleCount) {
                 Write-Field "Cycle Count" $bc.CycleCount
                 if ($bc.CycleCount -gt 500) {
-                    Write-StatusField "Cycles" "$($bc.CycleCount) cycles — high usage" -Status Warn
-                    $warnings.Add("Battery has $($bc.CycleCount) charge cycles — high usage.")
+                    Write-StatusField "Cycles" "$($bc.CycleCount) cycles - high usage" -Status Warn
+                    $warnings.Add("Battery has $($bc.CycleCount) charge cycles - high usage.")
                 } elseif ($bc.CycleCount -gt 300) {
-                    Write-StatusField "Cycles" "$($bc.CycleCount) cycles — moderate usage" -Status Warn
+                    Write-StatusField "Cycles" "$($bc.CycleCount) cycles - moderate usage" -Status Warn
                 } else {
-                    Write-StatusField "Cycles" "$($bc.CycleCount) cycles — low usage" -Status OK
+                    Write-StatusField "Cycles" "$($bc.CycleCount) cycles - low usage" -Status OK
                 }
             }
         }
@@ -640,20 +647,20 @@ if ($batteries) {
         $battReportPath = "$OutputPath-battery.html"
         try {
             $null = & powercfg /batteryreport /output $battReportPath 2>&1
-            Write-Host "`n  📄 " -NoNewline
-            Write-Host "Battery report: " -NoNewline -ForegroundColor Gray
+            Write-Host ""
+            Write-Host "  >> Battery report: " -NoNewline -ForegroundColor Gray
             Write-Host $battReportPath -ForegroundColor Blue
         } catch {
-            Write-Host "    ℹ  Could not generate battery report" -ForegroundColor DarkGray
+            Write-Host "    [i] Could not generate battery report" -ForegroundColor DarkGray
         }
     }
 } else {
     Write-Host "  No battery detected (desktop or battery removed)" -ForegroundColor DarkGray
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 #  6. DISPLAY / MONITOR
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 Write-Section "6. DISPLAY"
 
@@ -664,9 +671,9 @@ if ($monitors) {
     $monIndex = 0
     foreach ($mon in $monitors) {
         $monIndex++
-        $mfr     = Decode-WmiString $mon.ManufacturerName
-        $name    = Decode-WmiString $mon.UserFriendlyName
-        $serial  = Decode-WmiString $mon.SerialNumberID
+        $mfr      = Decode-WmiString $mon.ManufacturerName
+        $name     = Decode-WmiString $mon.UserFriendlyName
+        $serial   = Decode-WmiString $mon.SerialNumberID
         $prodCode = Decode-WmiString $mon.ProductCodeID
 
         Write-Host ""
@@ -681,7 +688,7 @@ if ($monitors) {
         if ($isKnownPanel) {
             Write-StatusField "  Panel Vendor" "'$mfr' is a known $($profile.DisplayName) panel supplier" -Status OK
         } elseif ($mfr) {
-            Write-StatusField "  Panel Vendor" "'$mfr' — verify for your $($profile.DisplayName) model" -Status Warn
+            Write-StatusField "  Panel Vendor" "'$mfr' - verify for your $($profile.DisplayName) model" -Status Warn
         }
 
         $report['Display'].Add([ordered]@{
@@ -709,9 +716,9 @@ foreach ($vc in $videoControllers) {
     }
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 #  7. NETWORK ADAPTERS
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 Write-Section "7. NETWORK ADAPTERS"
 
@@ -738,21 +745,21 @@ foreach ($nic in $netAdapters) {
                 $warnMsg += " (this brand enforces BIOS WiFi whitelist!)"
             }
             Write-StatusField "  WiFi Vendor" $warnMsg -Status Warn
-            $warnings.Add("WiFi adapter '$($nic.Name)' — verify with $($profile.DisplayName) approved list.")
+            $warnings.Add("WiFi adapter '$($nic.Name)' - verify with $($profile.DisplayName) approved list.")
         }
     }
 
     $report['Network'].Add([ordered]@{
-        Name = $nic.Name
-        MAC  = $nic.MACAddress
-        PNPID = $nic.PNPDeviceID
+        Name   = $nic.Name
+        MAC    = $nic.MACAddress
+        PNPID  = $nic.PNPDeviceID
         IsWifi = $isWifi
     })
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 #  8. AUDIO
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 Write-Section "8. AUDIO"
 
@@ -765,9 +772,9 @@ foreach ($a in $audio) {
     $report['Audio'].Add([ordered]@{ Name = $a.Name; Manufacturer = $a.Manufacturer })
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 #  9. CAMERA / WEBCAM
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 Write-Section "9. CAMERA / WEBCAM"
 
@@ -787,9 +794,9 @@ if ($cameras) {
     Write-Host "  No camera detected" -ForegroundColor DarkGray
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 #  10. AC ADAPTER / CHARGER
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 Write-Section "10. AC ADAPTER / CHARGER"
 
@@ -821,12 +828,12 @@ try {
         Write-StatusField "Adapter Status" "No charger warnings in Event Log" -Status OK
     }
 } catch {
-    Write-Host "  ℹ  Could not check Event Log" -ForegroundColor DarkGray
+    Write-Host "  [i] Could not check Event Log" -ForegroundColor DarkGray
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 #  11. TPM (TRUSTED PLATFORM MODULE)
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 Write-Section "11. TPM (TRUSTED PLATFORM MODULE)"
 
@@ -848,12 +855,12 @@ try {
         Write-Host "  Not detected or not accessible (requires admin)" -ForegroundColor DarkGray
     }
 } catch {
-    Write-Host "  ℹ  Could not query TPM (requires admin)" -ForegroundColor DarkGray
+    Write-Host "  [i] Could not query TPM (requires admin)" -ForegroundColor DarkGray
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 #  12. BRAND-SPECIFIC NOTES
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 if ($profile.Notes -and $profile.Notes.Count -gt 0) {
     Write-Section "12. $($profile.DisplayName.ToUpper())-SPECIFIC NOTES"
@@ -864,11 +871,11 @@ if ($profile.Notes -and $profile.Notes.Count -gt 0) {
     }
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 #  FINAL SUMMARY
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
-Write-Banner "SUMMARY — $($profile.DisplayName.ToUpper())"
+Write-Banner "SUMMARY - $($profile.DisplayName.ToUpper())"
 
 Write-Host ""
 Write-Host "  System   : $detectedManufacturer $model" -ForegroundColor White
@@ -879,27 +886,28 @@ Write-Host "  Storage  : $($disks.Count) drive(s)" -ForegroundColor White
 Write-Host ""
 
 if ($warnings.Count -eq 0) {
-    Write-Host "  ✅ ALL CLEAR — No issues detected!" -ForegroundColor Green
-    Write-Host "     All identified components appear to be from known $($profile.DisplayName) OEM suppliers." -ForegroundColor Green
-    Write-Host "     Still recommended: compare with original config using serial '$serialNumber'" -ForegroundColor Gray
+    Write-Host "  [OK] ALL CLEAR - No issues detected!" -ForegroundColor Green
+    Write-Host "       All identified components appear to be from known $($profile.DisplayName) OEM suppliers." -ForegroundColor Green
+    Write-Host "       Still recommended: compare with original config using serial '$serialNumber'" -ForegroundColor Gray
 } else {
-    Write-Host "  ⚠  $($warnings.Count) ITEM(S) FLAGGED FOR REVIEW:" -ForegroundColor Yellow
+    Write-Host "  [!!] $($warnings.Count) ITEM(S) FLAGGED FOR REVIEW:" -ForegroundColor Yellow
     Write-Host ""
     $warnNum = 0
     foreach ($w in $warnings) {
         $warnNum++
-        Write-Host "     $warnNum. $w" -ForegroundColor Yellow
+        Write-Host "       $warnNum. $w" -ForegroundColor Yellow
     }
 }
 
 if ($supportUrl) {
-    Write-Host "`n  🔗 Verify original configuration:" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  >> Verify original configuration:" -ForegroundColor Gray
     Write-Host "     $supportUrl" -ForegroundColor Blue
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 #  EXPORT: TEXT REPORT
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 $txtPath = "$OutputPath.txt"
 
@@ -912,7 +920,8 @@ $null = $sb.AppendLine("  Serial    : $serialNumber")
 $null = $sb.AppendLine("=" * 64)
 
 foreach ($section in $report.Keys) {
-    $null = $sb.AppendLine("`n--- $section ---")
+    $null = $sb.AppendLine("")
+    $null = $sb.AppendLine("--- $section ---")
     $data = $report[$section]
 
     if ($data -is [System.Collections.IList]) {
@@ -920,33 +929,42 @@ foreach ($section in $report.Keys) {
         foreach ($item in $data) {
             $itemNum++
             $null = $sb.AppendLine("  [$itemNum]")
-            foreach ($key in $item.Keys) {
-                $null = $sb.AppendLine("    {0,-26}: {1}" -f $key, $item[$key])
+            if ($item -is [hashtable] -or $item -is [System.Collections.Specialized.OrderedDictionary]) {
+                foreach ($key in $item.Keys) {
+                    $valStr = if ($null -ne $item[$key]) { "$($item[$key])" } else { "" }
+                    $null = $sb.AppendLine("    $("$key".PadRight(26)): $valStr")
+                }
+            } else {
+                $null = $sb.AppendLine("    $item")
             }
         }
     } elseif ($data -is [hashtable] -or $data -is [System.Collections.Specialized.OrderedDictionary]) {
         foreach ($key in $data.Keys) {
-            $null = $sb.AppendLine("  {0,-26}: {1}" -f $key, $data[$key])
+            $valStr = if ($null -ne $data[$key]) { "$($data[$key])" } else { "" }
+            $null = $sb.AppendLine("  $("$key".PadRight(26)): $valStr")
         }
     }
 }
 
 if ($warnings.Count -gt 0) {
-    $null = $sb.AppendLine("`n--- WARNINGS ($($warnings.Count)) ---")
+    $null = $sb.AppendLine("")
+    $null = $sb.AppendLine("--- WARNINGS ($($warnings.Count)) ---")
     $wn = 0
     foreach ($w in $warnings) { $wn++; $null = $sb.AppendLine("  $wn. $w") }
 } else {
-    $null = $sb.AppendLine("`n--- NO ISSUES DETECTED ---")
+    $null = $sb.AppendLine("")
+    $null = $sb.AppendLine("--- NO ISSUES DETECTED ---")
 }
 
-if ($supportUrl) { $null = $sb.AppendLine("`nVerify original config: $supportUrl") }
+if ($supportUrl) { $null = $sb.AppendLine(""); $null = $sb.AppendLine("Verify original config: $supportUrl") }
 
 $sb.ToString() | Out-File -FilePath $txtPath -Encoding utf8
-Write-Host "`n  📄 Text report : $txtPath" -ForegroundColor Green
+Write-Host ""
+Write-Host "  >> Text report : $txtPath" -ForegroundColor Green
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 #  EXPORT: JSON (optional)
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 if ($ExportJson) {
     $jsonPath = "$OutputPath.json"
@@ -960,12 +978,12 @@ if ($ExportJson) {
         SupportUrl  = $supportUrl
     }
     $jsonExport | ConvertTo-Json -Depth 5 | Out-File -FilePath $jsonPath -Encoding utf8
-    Write-Host "  📄 JSON report : $jsonPath" -ForegroundColor Green
+    Write-Host "  >> JSON report : $jsonPath" -ForegroundColor Green
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 #  EXPORT: HTML (optional)
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 if ($ExportHtml) {
     $htmlPath = "$OutputPath.html"
@@ -977,75 +995,87 @@ if ($ExportHtml) {
         default  { "#00d4ff" }
     }
 
-    $htmlContent = @"
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>$($profile.DisplayName) Component Report — $serialNumber</title>
-<style>
-    body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #1a1a2e; color: #e0e0e0; margin: 0; padding: 2rem; }
-    .header { background: linear-gradient(135deg, #16213e 0%, #0f3460 100%); padding: 2rem; border-radius: 12px; margin-bottom: 2rem; border-left: 6px solid $brandColor; }
-    .header h1 { color: $brandColor; margin: 0 0 0.5rem 0; }
-    .header p { margin: 0.2rem 0; color: #aaa; }
-    h2 { color: $brandColor; margin-top: 2rem; border-bottom: 1px solid #333; padding-bottom: 0.3rem; }
-    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
-    th, td { padding: 8px 14px; text-align: left; border: 1px solid #333; }
-    th { background: #16213e; color: $brandColor; font-weight: 600; }
-    tr:nth-child(even) { background: #1a1a3e; }
-    tr:hover { background: #222244; }
-    .warn-box { background: #3e2723; border-left: 4px solid #ff9800; padding: 1rem 1.5rem; border-radius: 8px; margin: 1rem 0; }
-    .ok-box { background: #1b3a1b; border-left: 4px solid #4caf50; padding: 1rem 1.5rem; border-radius: 8px; margin: 1rem 0; }
-    .warn { color: #ffc107; } .ok { color: #4caf50; }
-    a { color: #64b5f6; text-decoration: none; } a:hover { text-decoration: underline; }
-    .meta { display: flex; gap: 2rem; flex-wrap: wrap; }
-    .meta-item { background: #16213e; padding: 0.8rem 1.2rem; border-radius: 8px; min-width: 150px; }
-    .meta-item .label { color: #888; font-size: 0.8rem; text-transform: uppercase; }
-    .meta-item .value { color: #fff; font-size: 1.1rem; font-weight: 600; margin-top: 0.2rem; }
-</style>
-</head>
-<body>
-<div class="header">
-    <h1>$($profile.DisplayName) Component Originality Report</h1>
-    <div class="meta">
-        <div class="meta-item"><div class="label">$($profile.SerialLabel)</div><div class="value">$serialNumber</div></div>
-        <div class="meta-item"><div class="label">Model</div><div class="value">$model</div></div>
-        <div class="meta-item"><div class="label">Generated</div><div class="value">$(Get-Date -Format 'yyyy-MM-dd HH:mm')</div></div>
-    </div>
-    $(if ($supportUrl) { "<p style='margin-top:1rem'><a href='$supportUrl' target='_blank'>🔗 View Original Configuration on $($profile.DisplayName) Support</a></p>" })
-</div>
-"@
+    $warningCount = $warnings.Count
+    $brandDisplayName = $profile.DisplayName
+    $generatedDate = Get-Date -Format 'yyyy-MM-dd HH:mm'
+
+    $htmlLines = @()
+    $htmlLines += '<!DOCTYPE html>'
+    $htmlLines += '<html lang="en">'
+    $htmlLines += '<head>'
+    $htmlLines += '<meta charset="UTF-8">'
+    $htmlLines += "<title>$brandDisplayName Component Report - $serialNumber</title>"
+    $htmlLines += '<style>'
+    $htmlLines += "body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #1a1a2e; color: #e0e0e0; margin: 0; padding: 2rem; }"
+    $htmlLines += ".header { background: linear-gradient(135deg, #16213e 0%, #0f3460 100%); padding: 2rem; border-radius: 12px; margin-bottom: 2rem; border-left: 6px solid $brandColor; }"
+    $htmlLines += ".header h1 { color: $brandColor; margin: 0 0 0.5rem 0; }"
+    $htmlLines += '.header p { margin: 0.2rem 0; color: #aaa; }'
+    $htmlLines += "h2 { color: $brandColor; margin-top: 2rem; border-bottom: 1px solid #333; padding-bottom: 0.3rem; }"
+    $htmlLines += 'table { border-collapse: collapse; width: 100%; margin: 1rem 0; }'
+    $htmlLines += 'th, td { padding: 8px 14px; text-align: left; border: 1px solid #333; }'
+    $htmlLines += "th { background: #16213e; color: $brandColor; font-weight: 600; }"
+    $htmlLines += 'tr:nth-child(even) { background: #1a1a3e; }'
+    $htmlLines += 'tr:hover { background: #222244; }'
+    $htmlLines += '.warn-box { background: #3e2723; border-left: 4px solid #ff9800; padding: 1rem 1.5rem; border-radius: 8px; margin: 1rem 0; }'
+    $htmlLines += '.ok-box { background: #1b3a1b; border-left: 4px solid #4caf50; padding: 1rem 1.5rem; border-radius: 8px; margin: 1rem 0; }'
+    $htmlLines += '.warn { color: #ffc107; } .ok { color: #4caf50; }'
+    $htmlLines += 'a { color: #64b5f6; text-decoration: none; } a:hover { text-decoration: underline; }'
+    $htmlLines += '.meta { display: flex; gap: 2rem; flex-wrap: wrap; }'
+    $htmlLines += '.meta-item { background: #16213e; padding: 0.8rem 1.2rem; border-radius: 8px; min-width: 150px; }'
+    $htmlLines += '.meta-item .label { color: #888; font-size: 0.8rem; text-transform: uppercase; }'
+    $htmlLines += '.meta-item .value { color: #fff; font-size: 1.1rem; font-weight: 600; margin-top: 0.2rem; }'
+    $htmlLines += '</style>'
+    $htmlLines += '</head>'
+    $htmlLines += '<body>'
+    $htmlLines += '<div class="header">'
+    $htmlLines += "<h1>$brandDisplayName Component Originality Report</h1>"
+    $htmlLines += '<div class="meta">'
+    $htmlLines += "<div class='meta-item'><div class='label'>$($profile.SerialLabel)</div><div class='value'>$serialNumber</div></div>"
+    $htmlLines += "<div class='meta-item'><div class='label'>Model</div><div class='value'>$model</div></div>"
+    $htmlLines += "<div class='meta-item'><div class='label'>Generated</div><div class='value'>$generatedDate</div></div>"
+    $htmlLines += '</div>'
+    if ($supportUrl) {
+        $htmlLines += "<p style='margin-top:1rem'><a href='$supportUrl' target='_blank'>View Original Configuration on $brandDisplayName Support</a></p>"
+    }
+    $htmlLines += '</div>'
 
     foreach ($section in $report.Keys) {
-        $htmlContent += "<h2>$section</h2><table><tr><th>Property</th><th>Value</th></tr>"
+        $htmlLines += "<h2>$section</h2>"
+        $htmlLines += '<table><tr><th>Property</th><th>Value</th></tr>'
         $data = $report[$section]
 
         if ($data -is [System.Collections.IList]) {
             foreach ($item in $data) {
                 foreach ($key in $item.Keys) {
-                    $htmlContent += "<tr><td>$key</td><td>$($item[$key])</td></tr>"
+                    $htmlLines += "<tr><td>$key</td><td>$($item[$key])</td></tr>"
                 }
-                $htmlContent += "<tr><td colspan='2' style='border:none; height:8px;'></td></tr>"
+                $htmlLines += "<tr><td colspan='2' style='border:none; height:8px;'></td></tr>"
             }
         } elseif ($data -is [hashtable] -or $data -is [System.Collections.Specialized.OrderedDictionary]) {
             foreach ($key in $data.Keys) {
-                $htmlContent += "<tr><td>$key</td><td>$($data[$key])</td></tr>"
+                $htmlLines += "<tr><td>$key</td><td>$($data[$key])</td></tr>"
             }
         }
-        $htmlContent += "</table>"
+        $htmlLines += '</table>'
     }
 
-    if ($warnings.Count -gt 0) {
-        $htmlContent += "<div class='warn-box'><h2 class='warn'>⚠ Warnings ($($warnings.Count))</h2><ol>"
-        foreach ($w in $warnings) { $htmlContent += "<li class='warn'>$w</li>" }
-        $htmlContent += "</ol></div>"
+    if ($warningCount -gt 0) {
+        $htmlLines += "<div class='warn-box'><h2 class='warn'>Warnings ($warningCount)</h2><ol>"
+        foreach ($w in $warnings) {
+            $htmlLines += "<li class='warn'>$w</li>"
+        }
+        $htmlLines += '</ol></div>'
     } else {
-        $htmlContent += "<div class='ok-box'><h2 class='ok'>✅ All Clear</h2><p>All components appear to be from known $($profile.DisplayName) OEM suppliers.</p></div>"
+        $htmlLines += "<div class='ok-box'><h2 class='ok'>All Clear</h2><p>All components appear to be from known $brandDisplayName OEM suppliers.</p></div>"
     }
 
-    $htmlContent += "<p style='color:#555; margin-top:2rem; font-size:0.85rem;'>Generated by Laptop Component Originality Checker</p></body></html>"
-    $htmlContent | Out-File -FilePath $htmlPath -Encoding utf8
-    Write-Host "  📄 HTML report : $htmlPath" -ForegroundColor Green
+    $htmlLines += "<p style='color:#555; margin-top:2rem; font-size:0.85rem;'>Generated by Laptop Component Originality Checker</p>"
+    $htmlLines += '</body></html>'
+
+    $htmlLines -join "`n" | Out-File -FilePath $htmlPath -Encoding utf8
+    Write-Host "  >> HTML report : $htmlPath" -ForegroundColor Green
 }
 
-Write-Host "`n  Done! ✨`n" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "  Done!" -ForegroundColor Cyan
+Write-Host ""
