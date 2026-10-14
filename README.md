@@ -38,7 +38,7 @@ Invoke-WebRequest -Uri "https://raw.githubusercontent.com/YOUR_USERNAME/laptop-h
 ### 2. Run
 ```powershell
 # Auto-detect brand and run all checks
-powershell -ExecutionPolicy Bypass -File .\Laptop-ComponentCheck.ps1
+powershell -ExecutionPolicy Bypass -File .\Laptop-ComponentCheck.ps1 -Brand Dell -ExportHtml
 # Specify brand explicitly
 .\Laptop-ComponentCheck.ps1 -Brand Dell
 .\Laptop-ComponentCheck.ps1 -Brand HP
